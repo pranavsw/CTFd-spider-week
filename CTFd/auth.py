@@ -69,6 +69,46 @@ def lc_login():
     return render_template("lc_login.html", errors=errors)
 
 
+@auth.route("/generate_otp", methods=["POST"])
+def generate_otp():
+    errors = get_errors()
+    if request.method == "POST":
+        client_id = request.form["client_id"]
+        client_secret = request.form["client_secret"]
+        roll_no = int(request.form["roll_no"])
+
+        otp_client = OTPClient()
+        response = otp_client.generate_otp(client_id, client_secret, roll_no)
+        if response.message == "OTP Sent":
+            return render_template("otp_verification.html", client_id=client_id, client_secret=client_secret, roll_no=roll_no)
+        else:
+            errors.append("Failed to send OTP")
+    return render_template("generate_otp.html", errors=errors)
+
+
+@auth.route("/verify_otp", methods=["POST"])
+def verify_otp():
+    errors = get_errors()
+    if request.method == "POST":
+        client_id = request.form["client_id"]
+        client_secret = request.form["client_secret"]
+        roll_no = int(request.form["roll_no"])
+        otp = request.form.get("otp")
+
+        otp_client = OTPClient()
+        response = otp_client.verify_otp(client_id, client_secret, roll_no, int(otp))
+        if response.message == "OTP Verified":
+            user = Users.query.filter_by(roll_no=roll_no).first()
+            if user:
+                login_user(user)
+                return redirect(url_for("challenges.listing"))
+            else:
+                errors.append("User not found")
+        else:
+            errors.append("Invalid OTP")
+    return render_template("otp_verification.html", errors=errors)
+
+
 @auth.route("/confirm", methods=["POST", "GET"])
 @auth.route("/confirm/<data>", methods=["POST", "GET"])
 @ratelimit(method="POST", limit=10, interval=60)
@@ -420,8 +460,6 @@ def login():
     errors = get_errors()
     if request.method == "POST":
         name = request.form["name"]
-
-        # Check if the user submitted an email address or a team name
         if validators.validate_email(name) is True:
             user = Users.query.filter_by(email=name).first()
         else:
@@ -429,44 +467,17 @@ def login():
 
         if user:
             if user.password is None:
-                errors.append(
-                    "Your account was registered with a 3rd party authentication provider. "
-                    "Please try logging in with a configured authentication provider."
-                )
+                errors.append("Your account was registered with a 3rd party authentication provider. Please try logging in with a configured authentication provider.")
                 return render_template("login.html", errors=errors)
 
             if user and verify_password(request.form["password"], user.password):
                 session.regenerate()
-
-                login_user(user)
-                log("logins", "[{date}] {ip} - {name} logged in", name=user.name)
-
-                db.session.close()
-                if request.args.get("next") and validators.is_safe_url(
-                    request.args.get("next")
-                ):
-                    return redirect(request.args.get("next"))
-                return redirect(url_for("challenges.listing"))
-
+                return redirect(url_for("generate_otp", client_id="your_client_id", client_secret="your_client_secret", roll_no=user.roll_no))
             else:
-                # This user exists but the password is wrong
-                log(
-                    "logins",
-                    "[{date}] {ip} - submitted invalid password for {name}",
-                    name=user.name,
-                )
                 errors.append("Your username or password is incorrect")
-                db.session.close()
-                return render_template("login.html", errors=errors)
         else:
-            # This user just doesn't exist
-            log("logins", "[{date}] {ip} - submitted invalid account information")
             errors.append("Your username or password is incorrect")
-            db.session.close()
-            return render_template("login.html", errors=errors)
-    else:
-        db.session.close()
-        return render_template("login.html", errors=errors)
+    return render_template("login.html", errors=errors)
 
 
 @auth.route("/oauth")

@@ -16,8 +16,6 @@ def login_user(user):
     session["nonce"] = generate_nonce()
     session["hash"] = hmac(user.password)
     session.permanent = True
-
-    # Clear out any currently cached user attributes
     clear_user_session(user_id=user.id)
 
 
