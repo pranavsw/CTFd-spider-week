@@ -32,6 +32,42 @@ from CTFd.utils.validators import ValidationError
 
 auth = Blueprint("auth", __name__)
 
+from CTFd.grpc_client import OTPClient
+
+@auth.route("/LCAlogin", methods=["POST", "GET"])
+def lc_login():
+    errors = get_errors()
+    if request.method == "POST":
+        client_id = request.form["client_id"]
+        client_secret = request.form["client_secret"]
+        roll_no = int(request.form["roll_no"])
+        otp = request.form.get("otp")
+
+        otp_client = OTPClient()
+
+        if otp:
+            # Verify OTP
+            response = otp_client.verify_otp(client_id, client_secret, roll_no, int(otp))
+            if response.message == "OTP Verified":
+                # Proceed with login
+                user = Users.query.filter_by(roll_no=roll_no).first()
+                if user:
+                    login_user(user)
+                    return redirect(url_for("challenges.listing"))
+                else:
+                    errors.append("User not found")
+            else:
+                errors.append("Invalid OTP")
+        else:
+            # Generate OTP
+            response = otp_client.generate_otp(client_id, client_secret, roll_no)
+            if response.message == "OTP Sent":
+                return render_template("otp_verification.html", client_id=client_id, client_secret=client_secret, roll_no=roll_no)
+            else:
+                errors.append("Failed to send OTP")
+
+    return render_template("lc_login.html", errors=errors)
+
 
 @auth.route("/confirm", methods=["POST", "GET"])
 @auth.route("/confirm/<data>", methods=["POST", "GET"])
