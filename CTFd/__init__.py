@@ -31,6 +31,7 @@ from CTFd.utils.migrations import create_database, migrations, stamp_latest_revi
 from CTFd.utils.sessions import CachingSessionInterface
 from CTFd.utils.updates import update_check
 from CTFd.utils.user import get_locale
+from CTFd.auth.otp import otp
 
 __version__ = "3.7.5"
 __channel__ = "oss"
@@ -318,6 +319,7 @@ def create_app(config="CTFd.config.Config"):
         app.register_blueprint(social)
 
         app.register_blueprint(admin)
+        app.register_blueprint(otp)
 
         for code in {403, 404, 500, 502}:
             app.register_error_handler(code, render_error)

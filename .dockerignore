@@ -1,6 +1,27 @@
+# Virtual environment
+env/
+venv/
+.venv/
+.env/
+
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Development files
+.git/
+.gitignore
+.idea/
+.vscode/
+*.log
+*.db
+
+# Local data
+.data/
+CTFd/uploads/
+
 CTFd/logs/*.log
 CTFd/static/uploads
-CTFd/uploads
 CTFd/*.db
 CTFd/uploads/**/*
 .ctfd_secret_key
@@ -9,11 +30,7 @@ CTFd/uploads/**/*
 .codecov.yml
 .dockerignore
 .github
-.gitignore
 .prettierignore
 .travis.yml
 **/node_modules
 **/*.pyc
-**/__pycache__
-.venv*
-venv*
