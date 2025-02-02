@@ -201,8 +201,9 @@ def register():
 
     if request.method == "POST":
         name = request.form.get("name", "").strip()
-        email_address = request.form.get("email", "").strip().lower()
-        password = request.form.get("password", "").strip()
+        print (name)
+        # email_address = request.form.get("email", "").strip().lower()
+        # password = request.form.get("password", "").strip()
 
         website = request.form.get("website")
         affiliation = request.form.get("affiliation")
@@ -214,14 +215,14 @@ def register():
         names = (
             Users.query.add_columns(Users.name, Users.id).filter_by(name=name).first()
         )
-        emails = (
-            Users.query.add_columns(Users.email, Users.id)
-            .filter_by(email=email_address)
-            .first()
-        )
-        pass_short = len(password) == 0
-        pass_long = len(password) > 128
-        valid_email = validators.validate_email(email_address)
+        # emails = (
+        #     Users.query.add_columns(Users.email, Users.id)
+        #     .filter_by(email=email_address)
+        #     .first()
+        # )
+        # pass_short = len(password) == 0
+        # pass_long = len(password) > 128
+        # valid_email = validators.validate_email(email_address)
         team_name_email_check = validators.validate_email(name)
 
         if get_config("registration_code"):
@@ -277,20 +278,20 @@ def register():
             else:
                 valid_bracket = True
 
-        if not valid_email:
-            errors.append("Please enter a valid email address")
-        if email.check_email_is_whitelisted(email_address) is False:
-            errors.append("Your email address is not from an allowed domain")
+        # if not valid_email:
+        #     errors.append("Please enter a valid email address")
+        # if email.check_email_is_whitelisted(email_address) is False:
+        #     errors.append("Your email address is not from an allowed domain")
         if names:
             errors.append("That user name is already taken")
         if team_name_email_check is True:
             errors.append("Your user name cannot be an email address")
-        if emails:
-            errors.append("That email has already been used")
-        if pass_short:
-            errors.append("Pick a longer password")
-        if pass_long:
-            errors.append("Pick a shorter password")
+        # if emails:
+        #     errors.append("That email has already been used")
+        # if pass_short:
+        #     errors.append("Pick a longer password")
+        # if pass_long:
+        #     errors.append("Pick a shorter password")
         if name_len:
             errors.append("Pick a longer user name")
         if valid_website is False:
@@ -307,15 +308,15 @@ def register():
                 "register.html",
                 errors=errors,
                 name=request.form["name"],
-                email=request.form["email"],
-                password=request.form["password"],
+                # email=request.form["email"],
+                # password=request.form["password"],
             )
         else:
             with app.app_context():
                 user = Users(
                     name=name,
-                    email=email_address,
-                    password=password,
+                    email="",
+                    password="",
                     bracket_id=bracket_id,
                 )
 
