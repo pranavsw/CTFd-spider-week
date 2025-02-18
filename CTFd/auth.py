@@ -32,6 +32,32 @@ from CTFd.utils.validators import ValidationError
 
 auth = Blueprint("auth", __name__)
 
+from CTFd.utils.grpc import AuthenticationClient  # Update this line
+from CTFd.utils import get_config
+
+def get_auth_client():
+    """Get a configured AuthenticationClient instance"""
+    host = get_config('GRPC_HOST', '10.0.0.137')
+    port = int(get_config('GRPC_PORT', 10000))
+    
+    # Ensure client ID and secret are strings
+    client_id = str(get_config('GRPC_CLIENT_ID', '156984'))
+    client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h'))
+    
+    # Debug logging
+    print(f"gRPC Configuration:")
+    print(f"Host: {host}")
+    print(f"Port: {port}")
+    print(f"Client ID (type): {type(client_id)}")
+    print(f"Client Secret (type): {type(client_secret)}")
+    
+    return AuthenticationClient(
+        host=host,
+        port=port
+    )
+
+# Initialize the client
+auth_client = get_auth_client()
 
 @auth.route("/confirm", methods=["POST", "GET"])
 @auth.route("/confirm/<data>", methods=["POST", "GET"])
@@ -315,8 +341,8 @@ def register():
             with app.app_context():
                 user = Users(
                     name=name,
-                    email="",
-                    password="",
+                    email=name+"@nitt.edu",
+                    password=name+"@123",
                     bracket_id=bracket_id,
                 )
 
@@ -337,6 +363,55 @@ def register():
                     )
                     db.session.add(entry)
                 db.session.commit()
+
+                try:
+                    # Ensure credentials are properly formatted
+                    client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
+                    client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                    
+                    # Debug output (remove in production)
+                    print(f"Debug - Client ID: {client_id}")
+                    print(f"Debug - Client Secret length: {len(client_secret)}")
+                    
+                    # Generate OTP for registration
+                    success, message = auth_client.generate_otp(
+                        client_id=client_id,
+                        client_secret=client_secret,
+                        roll_no=int(name)
+                    )
+                    
+                    if not success:
+                        log(
+                            "registrations",
+                            format="[{date}] {ip} - OTP generation failed for {name}: {message}",
+                            name=name,
+                            message=message
+                        )
+                        errors.append(f"Failed to generate OTP: {message}")
+                        db.session.rollback()
+                        return render_template(
+                            "register.html",
+                            errors=errors,
+                            name=request.form["name"]
+                        )
+
+                    # Store OTP message in session for verification
+                    session['otp_pending'] = True
+                    session['registration_user_id'] = user.id
+
+                except ValueError as e:
+                    log(
+                        "registrations",
+                        format="[{date}] {ip} - Invalid roll number format for {name}",
+                        name=name
+                    )
+                    errors.append("Invalid roll number format")
+                    db.session.rollback()
+                    return render_template(
+                        "register.html",
+                        errors=errors,
+                        name=request.form["name"]
+                    )
 
                 login_user(user)
 
