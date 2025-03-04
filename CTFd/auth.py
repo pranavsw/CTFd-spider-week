@@ -2,6 +2,7 @@ import requests
 from flask import Blueprint, abort
 from flask import current_app as app
 from flask import redirect, render_template, request, session, url_for
+from flask import jsonify
 
 from CTFd.cache import clear_team_session, clear_user_session
 from CTFd.exceptions.email import (
@@ -334,122 +335,67 @@ def register():
                 "register.html",
                 errors=errors,
                 name=request.form["name"],
+# email=request.form["email"],
+# password=request.form["password"],
                 # email=request.form["email"],
                 # password=request.form["password"],
             )
         else:
-            with app.app_context():
-                user = Users(
-                    name=name,
-                    email=name+"@nitt.edu",
-                    password=name+"@123",
-                    bracket_id=bracket_id,
+            # Store registration data in session instead of creating user
+            registration_data = {
+                'name': name,
+                'email': name + "@nitt.edu",
+                'password': name + "@123",
+                'bracket_id': bracket_id,
+                'website': website,
+                'affiliation': affiliation,
+                'country': country,
+                'entries': entries
+            }
+            
+            try:
+                # Generate OTP first
+                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
+                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                
+                success, message = auth_client.generate_otp(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    roll_no=int(name)
                 )
-
-                if website:
-                    user.website = website
-                if affiliation:
-                    user.affiliation = affiliation
-                if country:
-                    user.country = country
-
-                db.session.add(user)
-                db.session.commit()
-                db.session.flush()
-
-                for field_id, value in entries.items():
-                    entry = UserFieldEntries(
-                        field_id=field_id, value=value, user_id=user.id
-                    )
-                    db.session.add(entry)
-                db.session.commit()
-
-                try:
-                    # Ensure credentials are properly formatted
-                    client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
-                    client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
-                    
-                    # Debug output (remove in production)
-                    print(f"Debug - Client ID: {client_id}")
-                    print(f"Debug - Client Secret length: {len(client_secret)}")
-                    
-                    # Generate OTP for registration
-                    success, message = auth_client.generate_otp(
-                        client_id=client_id,
-                        client_secret=client_secret,
-                        roll_no=int(name)
-                    )
-                    
-                    if not success:
-                        log(
-                            "registrations",
-                            format="[{date}] {ip} - OTP generation failed for {name}: {message}",
-                            name=name,
-                            message=message
-                        )
-                        errors.append(f"Failed to generate OTP: {message}")
-                        db.session.rollback()
-                        return render_template(
-                            "register.html",
-                            errors=errors,
-                            name=request.form["name"]
-                        )
-
-                    # Store OTP message in session for verification
-                    session['otp_pending'] = True
-                    session['registration_user_id'] = user.id
-
-                except ValueError as e:
+                
+                if not success:
                     log(
                         "registrations",
-                        format="[{date}] {ip} - Invalid roll number format for {name}",
-                        name=name
+                        format="[{date}] {ip} - OTP generation failed for {name}: {message}",
+                        name=name,
+                        message=message
                     )
-                    errors.append("Invalid roll number format")
-                    db.session.rollback()
+                    errors.append(f"Failed to generate OTP: {message}")
                     return render_template(
                         "register.html",
                         errors=errors,
                         name=request.form["name"]
                     )
 
-                login_user(user)
+                # Store registration data in session
+                session['registration_data'] = registration_data
+                session['otp_pending'] = True
+                
+                return redirect(url_for('auth.verify_otp'))
 
-                if request.args.get("next") and validators.is_safe_url(
-                    request.args.get("next")
-                ):
-                    return redirect(request.args.get("next"))
-
-                if config.can_send_mail() and get_config(
-                    "verify_emails"
-                ):  # Confirming users is enabled and we can send email.
-                    log(
-                        "registrations",
-                        format="[{date}] {ip} - {name} registered (UNCONFIRMED) with {email}",
-                        name=user.name,
-                        email=user.email,
-                    )
-                    email.verify_email_address(user.email)
-                    db.session.close()
-                    return redirect(url_for("auth.confirm"))
-                else:  # Don't care about confirming users
-                    if (
-                        config.can_send_mail()
-                    ):  # We want to notify the user that they have registered.
-                        email.successful_registration_notification(user.email)
-
-        log(
-            "registrations",
-            format="[{date}] {ip} - {name} registered with {email}",
-            name=user.name,
-            email=user.email,
-        )
-        db.session.close()
-
-        if is_teams_mode():
-            return redirect(url_for("teams.private"))
-
-        return redirect(url_for("challenges.listing"))
+            except ValueError as e:
+                log(
+                    "registrations",
+                    format="[{date}] {ip} - Invalid roll number format for {name}",
+                    name=name
+                )
+                errors.append("Invalid roll number format")
+                return render_template(
+                    "register.html",
+                    errors=errors,
+                    name=request.form["name"]
+                )
     else:
         return render_template("register.html", errors=errors)
 
@@ -674,3 +620,129 @@ def logout():
     if current_user.authed():
         logout_user()
     return redirect(url_for("views.static_html"))
+
+
+@auth.route("/generate_otp", methods=["POST"])
+def generate_otp():
+    data = request.get_json()
+    name = data.get("name", "").strip()
+
+    try:
+        # Ensure credentials are properly formatted
+        client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
+        client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+        
+        # Debug output (remove in production)
+        print(f"Debug - Client ID: {client_id}")
+        print(f"Debug - Client Secret length: {len(client_secret)}")
+        
+        # Generate OTP for registration
+        success, message = auth_client.generate_otp(
+            client_id=client_id,
+            client_secret=client_secret,
+            roll_no=int(name)
+        )
+        
+        if not success:
+            log(
+                "registrations",
+                format="[{date}] {ip} - OTP generation failed for {name}: {message}",
+                name=name,
+                message=message
+            )
+            return jsonify(success=False, message=message)
+
+        # Store OTP message in session for verification
+        session['otp_pending'] = True
+        session['registration_user_id'] = user.id
+
+        return jsonify(success=True, message=message)
+
+    except ValueError as e:
+        log(
+            "registrations",
+            format="[{date}] {ip} - Invalid roll number format for {name}",
+            name=name
+        )
+        return jsonify(success=False, message="Invalid roll number format")
+
+
+@auth.route("/verify_otp", methods=["GET", "POST"])
+def verify_otp():
+    if 'registration_data' not in session or 'otp_pending' not in session:
+        return redirect(url_for("auth.register"))
+
+    if request.method == "POST":
+        from CTFd import create_app
+        app = create_app()
+        
+        with app.app_context():
+            otp = request.form.get("otp", "").strip()
+            if not otp:
+                return render_template("verify_otp.html", errors=["Please enter OTP"])
+
+            registration_data = session['registration_data']
+            
+            try:
+                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
+                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                
+                success, message, details = auth_client.verify_otp(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    roll_no=int(registration_data['name']),
+                    otp=int(otp)
+                )
+
+                if success:
+                    # Create user after successful verification
+                    password_hash = hash_password(registration_data['password'])
+                    
+                    user = Users(
+                        name=registration_data['name'],
+                        email=registration_data['email'],
+                        password=password_hash,
+                        bracket_id=registration_data['bracket_id'],
+                        verified=True,
+                        hidden=False,
+                        banned=False,
+                        type='user'
+                    )
+
+                    db.session.add(user)
+                    db.session.flush()
+
+                    # Clear registration session data
+                    session.pop('registration_data', None)
+                    session.pop('otp_pending', None)
+
+                    # Generate new session
+                    session.regenerate()
+
+                    # Login user
+                    login_user(user)
+
+                    db.session.commit()
+
+                    log(
+                        "registrations",
+                        format="[{date}] {ip} - {name} registered successfully",
+                        name=user.name
+                    )
+
+                    if is_teams_mode():
+                        return redirect(url_for("teams.private"))
+                    return redirect(url_for("challenges.listing"))
+                else:
+                    return render_template("verify_otp.html", errors=[message])
+
+            except Exception as e:
+                db.session.rollback()
+                log(
+                    "registrations",
+                    format="[{date}] {ip} - Error verifying OTP: {error}",
+                    error=str(e)
+                )
+                return render_template("verify_otp.html", errors=["An error occurred while verifying OTP"])
+
+    return render_template("verify_otp.html")
