@@ -27,47 +27,46 @@
           {% from "macros/forms.html" import render_extra_fields %}
 
           <form method="post" accept-charset="utf-8" role="form">
+            <input type="hidden" name="action" id="form-action" value=""> {#  This is used to determine if the form is being submitted or if the user is requesting an OTP #}
 
             <div class="mb-3">
               <b>{{ form.name.label(class="form-label") }}</b>
               {{ form.name(class="form-control", value=name, autocomplete="username") }}
               <small class="form-text text-muted">
-                {% trans %}Your username on the site{% endtrans %}
+                {% trans %}Enter your Roll No.{% endtrans %}
               </small>
             </div>
 
-            {# <div class="mb-3">
-              <b>{{ form.email.label(class="form-label") }}</b>
-              {{ form.email(class="form-control", value=email, autocomplete="email") }}
-              <small class="form-text text-muted">
-                {% trans %}Never shown to the public{% endtrans %}
-              </small>
+            <div class="row pt-3">
+              <div class="col-6 col-md-4 offset-6 offset-md-8">
+                {{ form.generate_otp(class="btn btn-block btn-primary w-100", onclick="document.getElementById('form-action').value='generate_otp'", formnovalidate="true") }}
+              </div>
             </div>
-            #}
 
-            {# <div class="mb-3">
-              <b>{{ form.password.label(class="form-label") }}</b>
-              {{ form.password(class="form-control", value=password, autocomplete="new-password") }}
+            {% if otp_requested %} {#  OTP is requested #}
+            <div class="mb-3 mt-3">
+              <b>{{ form.otp.label(class="form-label") }}</b>
+              {{ form.otp(class="form-control", value="") }}
               <small class="form-text text-muted">
-                {% trans %}Password used to log into your account{% endtrans %}
+                {% trans %}Enter the OTP sent to Lynx App or Website{% endtrans %}
               </small>
             </div>
-            #}
+            
+            <div class="row pt-3">
+              <div class="col-6 col-md-4 offset-6 offset-md-8">
+                {{ form.submit(class="btn btn-block btn-primary w-100", onclick="document.getElementById('form-action').value='submit'") }}
+              </div>
+            </div>
+            {% endif %}
 
             {{ form.nonce() }}
 
             {{ render_extra_fields(form.extra) }}
 
-            <div class="row pt-3">
-              <div class="col-6 col-md-4 offset-6 offset-md-8">
-                {{ form.submit(class="btn btn-block btn-primary w-100") }}
-              </div>
-            </div>
-
             {% if Configs.tos_or_privacy %}
               <div class="row pt-3">
                 <div class="col-md-12 text-center">
-                  <small class="text-muted text-center">
+                  <small class="text-muted text-muted text-center">
                     {% trans trimmed privacy_link=Configs.privacy_link, tos_link=Configs.tos_link %}
                     By registering, you agree to the
                     <a href="{{ privacy_link }}" target="_blank">privacy policy</a>
