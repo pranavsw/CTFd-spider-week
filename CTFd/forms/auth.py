@@ -55,12 +55,20 @@ def RegistrationForm(*args, **kwargs):
 
 class LoginForm(BaseForm):
     name = StringField(
-        _l("User Name or Email"),
+        _l("Roll No"),
         validators=[InputRequired()],
         render_kw={"autofocus": True},
     )
-    password = PasswordField(_l("Password"), validators=[InputRequired()])
-    submit = SubmitField(_l("Submit"))
+    otp = IntegerField(
+        _l("OTP"), 
+        validators=[
+            Optional(),  # Make OTP optional when generating OTP
+            NumberRange(min=100000, max=999999, message=_l("OTP must be a 6-digit number"))
+        ]
+    )
+    # Use explicit name parameters to avoid WTForms renaming
+    submit = SubmitField(_l("Submit"), name="submit")
+    generate_otp = SubmitField(_l("Generate OTP"), name="generate_otp")
 
 
 class ConfirmForm(BaseForm):

@@ -516,54 +516,170 @@ def register():
 def login():
     errors = get_errors()
     if request.method == "POST":
-        name = request.form["name"]
+        from CTFd.forms.auth import LoginForm
+        form = LoginForm(request.form)
+        name = request.form.get("name", "").strip()
+        action = request.form.get("action")
 
-        # Check if the user submitted an email address or a team name
-        if validators.validate_email(name) is True:
-            user = Users.query.filter_by(email=name).first()
-        else:
-            user = Users.query.filter_by(name=name).first()
-
-        if user:
-            if user.password is None:
-                errors.append(
-                    "Your account was registered with a 3rd party authentication provider. "
-                    "Please try logging in with a configured authentication provider."
+        # Check which action was requested
+        if form.generate_otp.data:
+            if not name:
+                errors.append("Please enter your Roll No.")
+                return render_template(
+                    "login.html",
+                    errors=errors,
+                    name=name,
                 )
-                return render_template("login.html", errors=errors)
 
-            if user and verify_password(request.form["password"], user.password):
+            # Check if user exists
+            user = Users.query.filter_by(name=name).first()
+            if not user:
+                errors.append("This Roll No. is not registered")
+                return render_template(
+                    "login.html",
+                    errors=errors,
+                    name=name,
+                )
+
+            try:
+                # Ensure credentials are properly formatted
+                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
+                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                
+                # Generate OTP for login
+                success, message = auth_client.generate_otp(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    roll_no=int(name)
+                )
+                
+                if not success:
+                    log(
+                        "logins",
+                        format="[{date}] {ip} - OTP generation failed for {name}: {message}",
+                        name=name,
+                        message=message
+                    )
+                    errors.append(f"Failed to generate OTP: {message}")
+                    return render_template(
+                        "login.html",
+                        errors=errors,
+                        name=name
+                    )
+
+                # Store information in session
+                session['otp_requested'] = True
+                session['roll_no'] = name
+                
+                log(
+                    "logins",
+                    format="[{date}] {ip} - OTP generated for {name}",
+                    name=name
+                )
+                
+                # Return to the same page with OTP field now visible
+                return render_template(
+                    "login.html",
+                    name=name,
+                    otp_requested=True
+                )
+            except ValueError as e:
+                log(
+                    "logins",
+                    format="[{date}] {ip} - Invalid roll number format for {name}",
+                    name=name
+                )
+                errors.append("Invalid roll number format")
+                return render_template(
+                    "login.html",
+                    errors=errors,
+                    name=name
+                )
+
+        # If the Submit button was pressed (OTP verification)
+        elif form.submit.data:
+            otp = request.form.get("otp")
+            if not otp:
+                errors.append("Please enter the OTP sent to your mobile")
+                return render_template(
+                    "login.html", 
+                    errors=errors,
+                    name=name,
+                    otp_requested=True
+                )
+
+            try:
+                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
+                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                
+                success, message, details = auth_client.verify_otp(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    roll_no=int(name),
+                    otp=int(otp)
+                )
+                
+                if not success:
+                    log(
+                        "logins",
+                        format="[{date}] {ip} - OTP verification failed for {name}: {message}",
+                        name=name,
+                        message=message
+                    )
+                    errors.append(f"OTP verification failed: {message}")
+                    return render_template(
+                        "login.html",
+                        errors=errors,
+                        name=name,
+                        otp_requested=True
+                    )
+
+                # OTP verified successfully, log the user in
+                user = Users.query.filter_by(name=name).first()
                 session.regenerate()
-
                 login_user(user)
-                log("logins", "[{date}] {ip} - {name} logged in", name=user.name)
-
+                
+                # Clear session data
+                session.pop('otp_requested', None)
+                session.pop('roll_no', None)
+                
+                log(
+                    "logins",
+                    format="[{date}] {ip} - {name} logged in successfully after OTP verification",
+                    name=name
+                )
+                
                 db.session.close()
                 if request.args.get("next") and validators.is_safe_url(
                     request.args.get("next")
                 ):
                     return redirect(request.args.get("next"))
                 return redirect(url_for("challenges.listing"))
-
-            else:
-                # This user exists but the password is wrong
+            
+            except ValueError as e:
                 log(
                     "logins",
-                    "[{date}] {ip} - submitted invalid password for {name}",
-                    name=user.name,
+                    format="[{date}] {ip} - Error during OTP verification for {name}: {error}",
+                    name=name,
+                    error=str(e)
                 )
-                errors.append("Your username or password is incorrect")
-                db.session.close()
-                return render_template("login.html", errors=errors)
+                errors.append("Invalid OTP format")
+                return render_template(
+                    "login.html",
+                    errors=errors,
+                    name=name,
+                    otp_requested=True
+                )
         else:
-            # This user just doesn't exist
-            log("logins", "[{date}] {ip} - submitted invalid account information")
-            errors.append("Your username or password is incorrect")
-            db.session.close()
-            return render_template("login.html", errors=errors)
+            return render_template("login.html", errors=errors, name=name)
     else:
         db.session.close()
-        return render_template("login.html", errors=errors)
+        return render_template(
+            "login.html", 
+            errors=errors,
+            otp_requested=session.get('otp_requested', False),
+            name=session.get('roll_no', '')
+        )
 
 
 @auth.route("/oauth")
