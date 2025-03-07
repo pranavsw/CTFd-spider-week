@@ -226,126 +226,221 @@ def register():
         )
 
     if request.method == "POST":
+        from CTFd.forms.auth import RegistrationForm as RegistrationFormClass
+        form = RegistrationFormClass(request.form)
         name = request.form.get("name", "").strip()
-        print (name)
+        # print (name)
         # email_address = request.form.get("email", "").strip().lower()
         # password = request.form.get("password", "").strip()
 
-        website = request.form.get("website")
-        affiliation = request.form.get("affiliation")
-        country = request.form.get("country")
-        registration_code = str(request.form.get("registration_code", ""))
-        bracket_id = request.form.get("bracket_id", None)
+        # Check which action was requested
+        action = request.form.get("action")
+        
+        # print(f"Form data: generate_otp={form.generate_otp.data}, submit={form.submit.data}")
 
-        name_len = len(name) == 0
-        names = (
-            Users.query.add_columns(Users.name, Users.id).filter_by(name=name).first()
-        )
-        # emails = (
-        #     Users.query.add_columns(Users.email, Users.id)
-        #     .filter_by(email=email_address)
-        #     .first()
-        # )
-        # pass_short = len(password) == 0
-        # pass_long = len(password) > 128
-        # valid_email = validators.validate_email(email_address)
-        team_name_email_check = validators.validate_email(name)
-
-        if get_config("registration_code"):
-            if (
-                registration_code.lower()
-                != str(get_config("registration_code", default="")).lower()
-            ):
-                errors.append("The registration code you entered was incorrect")
-
-        # Process additional user fields
-        fields = {}
-        for field in UserFields.query.all():
-            fields[field.id] = field
-
-        entries = {}
-        for field_id, field in fields.items():
-            value = request.form.get(f"fields[{field_id}]", "").strip()
-            if field.required is True and (value is None or value == ""):
-                errors.append("Please provide all required fields")
-                break
-
-            if field.field_type == "boolean":
-                entries[field_id] = bool(value)
-            else:
-                entries[field_id] = value
-
-        if country:
+        if form.generate_otp.data:
+            if not name:
+                errors.append("Please enter your Roll No.")
+                return render_template(
+                    "register.html",
+                    errors=errors,
+                    name=name,
+                )
+            names = (
+                Users.query.add_columns(Users.name, Users.id).filter_by(name=name).first()
+            )
+            if names:
+                errors.append("This Roll No. is already registered")
+                return render_template(
+                    "register.html",
+                    errors=errors,
+                    name=name,
+                )
+            print (name + "Bye")
             try:
-                validators.validate_country_code(country)
-                valid_country = True
-            except ValidationError:
-                valid_country = False
-        else:
-            valid_country = True
-
-        if website:
-            valid_website = validators.validate_url(website)
-        else:
-            valid_website = True
-
-        if affiliation:
-            valid_affiliation = len(affiliation) < 128
-        else:
-            valid_affiliation = True
-
-        if bracket_id:
-            valid_bracket = bool(
-                Brackets.query.filter_by(id=bracket_id, type="users").first()
-            )
-        else:
-            if Brackets.query.filter_by(type="users").count():
-                valid_bracket = False
+                # Ensure credentials are properly formatted
+                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
+                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                
+                # Generate OTP for registration
+                success, message = auth_client.generate_otp(
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    roll_no=int(name)
+                )
+                
+                if not success:
+                    log(
+                        "registrations",
+                        format="[{date}] {ip} - OTP generation failed for {name}: {message}",
+                        name=name,
+                        message=message
+                    )
+                    errors.append(f"Failed to generate OTP: {message}")
+                    return render_template(
+                        "register.html",
+                        errors=errors,
+                        name=name
+                    )
+                # Store information in session
+                session['otp_requested'] = True
+                session['roll_no'] = name
+                log(
+                    "registrations",
+                    format="[{date}] {ip} - OTP generated for {name}",
+                    name=name
+                )
+                # Return to the same page with OTP field now visible
+                return render_template(
+                    "register.html",
+                    name=name,
+                    otp_requested=True
+                )
+            except ValueError as e:
+                log(
+                    "registrations",
+                    format="[{date}] {ip} - Invalid roll number format for {name}",
+                    name=name
+                )
+                errors.append("Invalid roll number format")
+                return render_template(
+                    "register.html",
+                    errors=errors,
+                    name=name
+                )
+        # If the Submit button was pressed (OTP verification)
+        elif form.submit.data:
+            otp = request.form.get("otp")
+            if not otp:
+                errors.append("Please enter the OTP sent to your mobile")
+                return render_template(
+                    "register.html", 
+                    errors=errors,
+                    name=name,
+                    otp_requested=True
+                )
+            print (name + "Hello")
+            # Basic validation checks
+            name_len = len(name) == 0
+            team_name_email_check = validators.validate_email(name)
+            
+            website = request.form.get("website")
+            affiliation = request.form.get("affiliation")
+            country = request.form.get("country")
+            registration_code = str(request.form.get("registration_code", ""))
+            bracket_id = request.form.get("bracket_id", None)
+            
+            # Run validation checks
+            if country:
+                try:
+                    validators.validate_country_code(country)
+                    valid_country = True
+                except ValidationError:
+                    valid_country = False
             else:
-                valid_bracket = True
+                valid_country = True
+            
+            if website:
+                valid_website = validators.validate_url(website)
+            else:
+                valid_website = True
 
-        # if not valid_email:
-        #     errors.append("Please enter a valid email address")
-        # if email.check_email_is_whitelisted(email_address) is False:
-        #     errors.append("Your email address is not from an allowed domain")
-        if names:
-            errors.append("That user name is already taken")
-        if team_name_email_check is True:
-            errors.append("Your user name cannot be an email address")
-        # if emails:
-        #     errors.append("That email has already been used")
-        # if pass_short:
-        #     errors.append("Pick a longer password")
-        # if pass_long:
-        #     errors.append("Pick a shorter password")
-        if name_len:
-            errors.append("Pick a longer user name")
-        if valid_website is False:
-            errors.append("Websites must be a proper URL starting with http or https")
-        if valid_country is False:
-            errors.append("Invalid country")
-        if valid_affiliation is False:
-            errors.append("Please provide a shorter affiliation")
-        if valid_bracket is False:
-            errors.append("Please provide a valid bracket")
+            if affiliation:
+                valid_affiliation = len(affiliation) < 128
+            else:
+                valid_affiliation = True
 
-        if len(errors) > 0:
-            return render_template(
-                "register.html",
-                errors=errors,
-                name=request.form["name"],
-                # email=request.form["email"],
-                # password=request.form["password"],
-            )
-        else:
-            with app.app_context():
+            if bracket_id:
+                valid_bracket = bool(
+                    Brackets.query.filter_by(id=bracket_id, type="users").first()
+                )
+            else:
+                if Brackets.query.filter_by(type="users").count():
+                    valid_bracket = False
+                else:
+                    valid_bracket = True
+
+            # Check registration code if required
+            if get_config("registration_code"):
+                if (
+                    registration_code.lower()
+                    != str(get_config("registration_code", default="")).lower()
+                ):
+                    errors.append("The registration code you entered was incorrect")
+            # Process additional user fields
+            fields = {}
+            for field in UserFields.query.all():
+                fields[field.id] = field
+
+            entries = {}
+            for field_id, field in fields.items():
+                value = request.form.get(f"fields[{field_id}]", "").strip()
+                if field.required is True and (value is None or value == ""):
+                    errors.append("Please provide all required fields")
+                    break
+
+                if field.field_type == "boolean":
+                    entries[field_id] = bool(value)
+                else:
+                    entries[field_id] = value
+            
+            # Check for validation errors
+            if team_name_email_check is True:
+                errors.append("Your Roll No. cannot be an email address")
+            if name_len:
+                errors.append("Roll No. cannot be empty")
+            if valid_website is False:
+                errors.append("Websites must be a proper URL starting with http or https")
+            if valid_country is False:
+                errors.append("Invalid country")
+            if valid_affiliation is False:
+                errors.append("Please provide a shorter affiliation")
+            if valid_bracket is False:
+                errors.append("Please provide a valid bracket")
+            
+            # If there are validation errors, redisplay the form
+            if len(errors) > 0:
+                return render_template(
+                    "register.html",
+                    errors=errors,
+                    name=name,
+                    otp_requested=True
+                )
+            
+            # Verify OTP
+            try:
+                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
+                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                
+                success, message, details = auth_client.verify_otp(  # Now properly unpacking 3 values
+                    client_id=client_id,
+                    client_secret=client_secret,
+                    roll_no=int(name),
+                    otp=int(otp)
+                )
+                
+                if not success:
+                    log(
+                        "registrations",
+                        format="[{date}] {ip} - OTP verification failed for {name}: {message}",
+                        name=name,
+                        message=message
+                    )
+                    errors.append(f"OTP verification failed: {message}")
+                    return render_template(
+                        "register.html",
+                        errors=errors,
+                        name=name,
+                        otp_requested=True
+                    )
+                    
+                # OTP verified successfully, create the user
                 user = Users(
                     name=name,
                     email=name+"@nitt.edu",
                     password=name+"@123",
                     bracket_id=bracket_id,
                 )
-
                 if website:
                     user.website = website
                 if affiliation:
@@ -357,102 +452,64 @@ def register():
                 db.session.commit()
                 db.session.flush()
 
+                # Add user field entries
                 for field_id, value in entries.items():
                     entry = UserFieldEntries(
                         field_id=field_id, value=value, user_id=user.id
                     )
                     db.session.add(entry)
                 db.session.commit()
-
-                try:
-                    # Ensure credentials are properly formatted
-                    client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
-                    client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
-                    
-                    # Debug output (remove in production)
-                    print(f"Debug - Client ID: {client_id}")
-                    print(f"Debug - Client Secret length: {len(client_secret)}")
-                    
-                    # Generate OTP for registration
-                    success, message = auth_client.generate_otp(
-                        client_id=client_id,
-                        client_secret=client_secret,
-                        roll_no=int(name)
-                    )
-                    
-                    if not success:
-                        log(
-                            "registrations",
-                            format="[{date}] {ip} - OTP generation failed for {name}: {message}",
-                            name=name,
-                            message=message
-                        )
-                        errors.append(f"Failed to generate OTP: {message}")
-                        db.session.rollback()
-                        return render_template(
-                            "register.html",
-                            errors=errors,
-                            name=request.form["name"]
-                        )
-
-                    # Store OTP message in session for verification
-                    session['otp_pending'] = True
-                    session['registration_user_id'] = user.id
-
-                except ValueError as e:
-                    log(
-                        "registrations",
-                        format="[{date}] {ip} - Invalid roll number format for {name}",
-                        name=name
-                    )
-                    errors.append("Invalid roll number format")
-                    db.session.rollback()
-                    return render_template(
-                        "register.html",
-                        errors=errors,
-                        name=request.form["name"]
-                    )
-
+                
+                # Clear session data
+                session.pop('otp_requested', None)
+                session.pop('roll_no', None)
+                
                 login_user(user)
 
+                log(
+                    "registrations",
+                    format="[{date}] {ip} - {name} registered successfully after OTP verification",
+                    name=name
+                )
+                
                 if request.args.get("next") and validators.is_safe_url(
                     request.args.get("next")
                 ):
                     return redirect(request.args.get("next"))
-
-                if config.can_send_mail() and get_config(
-                    "verify_emails"
-                ):  # Confirming users is enabled and we can send email.
-                    log(
-                        "registrations",
-                        format="[{date}] {ip} - {name} registered (UNCONFIRMED) with {email}",
-                        name=user.name,
-                        email=user.email,
-                    )
-                    email.verify_email_address(user.email)
-                    db.session.close()
-                    return redirect(url_for("auth.confirm"))
-                else:  # Don't care about confirming users
-                    if (
-                        config.can_send_mail()
-                    ):  # We want to notify the user that they have registered.
-                        email.successful_registration_notification(user.email)
-
-        log(
-            "registrations",
-            format="[{date}] {ip} - {name} registered with {email}",
-            name=user.name,
-            email=user.email,
-        )
-        db.session.close()
-
-        if is_teams_mode():
-            return redirect(url_for("teams.private"))
-
-        return redirect(url_for("challenges.listing"))
+                
+                if is_teams_mode():
+                    return redirect(url_for("teams.private"))
+                
+                return redirect(url_for("challenges.listing"))
+            
+            except ValueError as e:
+                log(
+                    "registrations",
+                    format="[{date}] {ip} - Error during OTP verification for {name}: {error}",
+                    name=name,
+                    error=str(e)
+                )
+                errors.append("Invalid OTP format")
+                return render_template(
+                    "register.html",
+                    errors=errors,
+                    name=name,
+                    otp_requested=True
+                )
+                
+        else:
+            # This block handles any other condition (not generate_otp, not submit)
+            print (name + " Hi")
+            return render_template("register.html", errors=errors, name=name)
+            
     else:
-        return render_template("register.html", errors=errors)
-
+        # This is for GET requests
+        # print (name + " end")
+        return render_template("register.html", 
+                          errors=errors, 
+                          otp_requested=session.get('otp_requested', False),
+                          name=session.get('roll_no', ''))
+    
 
 @auth.route("/login", methods=["POST", "GET"])
 @ratelimit(method="POST", limit=10, interval=5)
