@@ -42,23 +42,22 @@ from CTFd.utils import get_config
 
 def get_auth_client():
     """Get a configured AuthenticationClient instance"""
-    host = get_config('GRPC_HOST', '10.0.0.137')
-    port = int(get_config('GRPC_PORT', 10000))
-    
-    # Ensure client ID and secret are strings
-    client_id = str(get_config('GRPC_CLIENT_ID', '156984'))
-    client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h'))
+    # Use environment variables
+    host = os.getenv('GRPC_HOST', 'grpc.lcas.spider-nitt.org')
+    port = int(os.getenv('GRPC_PORT', '443'))
     
     # Debug logging
     print(f"gRPC Configuration:")
     print(f"Host: {host}")
     print(f"Port: {port}")
-    print(f"Client ID (type): {type(client_id)}")
-    print(f"Client Secret (type): {type(client_secret)}")
+    
+    # Use secure channel for port 443
+    use_ssl = port == 443
     
     return AuthenticationClient(
         host=host,
-        port=port
+        port=port,
+        use_ssl=use_ssl
     )
 
 # Initialize the client
