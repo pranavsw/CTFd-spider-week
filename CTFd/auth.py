@@ -1,4 +1,9 @@
 import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from flask import Blueprint, abort
 from flask import current_app as app
 from flask import redirect, render_template, request, session, url_for
@@ -259,8 +264,8 @@ def register():
             print (name + "Bye")
             try:
                 # Ensure credentials are properly formatted
-                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
-                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                client_id = os.getenv('GRPC_CLIENT_ID')
+                client_secret = os.getenv('GRPC_CLIENT_SECRET')
                 
                 # Generate OTP for registration
                 success, message = auth_client.generate_otp(
@@ -409,8 +414,8 @@ def register():
             
             # Verify OTP
             try:
-                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
-                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                client_id = os.getenv('GRPC_CLIENT_ID')
+                client_secret = os.getenv('GRPC_CLIENT_SECRET')
                 
                 success, message, details = auth_client.verify_otp(  # Now properly unpacking 3 values
                     client_id=client_id,
@@ -543,8 +548,8 @@ def login():
 
             try:
                 # Ensure credentials are properly formatted
-                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
-                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                client_id = os.getenv('GRPC_CLIENT_ID')
+                client_secret = os.getenv('GRPC_CLIENT_SECRET')
                 
                 # Generate OTP for login
                 success, message = auth_client.generate_otp(
@@ -609,8 +614,8 @@ def login():
                 )
 
             try:
-                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
-                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                client_id = os.getenv('GRPC_CLIENT_ID')
+                client_secret = os.getenv('GRPC_CLIENT_SECRET')
                 
                 success, message, details = auth_client.verify_otp(
                     client_id=client_id,
