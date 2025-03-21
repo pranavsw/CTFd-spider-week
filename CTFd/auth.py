@@ -234,15 +234,39 @@ def register():
         from CTFd.forms.auth import RegistrationForm as RegistrationFormClass
         form = RegistrationFormClass(request.form)
         name = request.form.get("name", "").strip()
-        # print (name)
-        # email_address = request.form.get("email", "").strip().lower()
-        # password = request.form.get("password", "").strip()
-
-        # Check which action was requested
-        action = request.form.get("action")
         
-        # print(f"Form data: generate_otp={form.generate_otp.data}, submit={form.submit.data}")
-
+        # Add roll number validation
+        # Skip validation for admin users
+        if current_user.authed():
+            is_admin = current_user.type == "admin"
+        else:
+            is_admin = False
+            
+        if not is_admin and name:
+            # Get validation settings from environment variables
+            min_roll_length = int(os.getenv("MIN_ROLL_LENGTH", "6"))
+            allowed_batch_code = os.getenv("ALLOWED_BATCH_CODE")  # No default value
+            error_message = os.getenv("REGISTRATION_ERROR_MESSAGE", 
+                                     "Only First year students are allowed to participate in this CTF")
+            
+            # Only validate if the name is not empty and user is not an admin
+            if len(name) < min_roll_length:
+                errors.append(error_message)
+                return render_template(
+                    "register.html",
+                    errors=errors,
+                    name=name,
+                )
+            # Only validate batch code if an allowed batch code is specified
+            elif allowed_batch_code and name[3:6] != allowed_batch_code:
+                errors.append(error_message)
+                return render_template(
+                    "register.html",
+                    errors=errors,
+                    name=name,
+                )
+        
+        # Rest of the function continues as before
         if form.generate_otp.data:
             if not name:
                 errors.append("Please enter your Roll No.")
