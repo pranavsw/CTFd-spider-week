@@ -256,12 +256,6 @@ class ServerConfig(object):
     # Since the configurations in section "[extra]" will be loaded later, it is not necessary to declare them here.
     # However, if you want to have some processing or checking on the value, you can still declare it here just like other configurations.
 
-    # gRPC Configuration
-    GRPC_HOST = "10.0.0.137"
-    GRPC_PORT = 10000
-    GRPC_CLIENT_ID = str("156984")  # Ensure it's a string
-    GRPC_CLIENT_SECRET = str("$05A#cRyd08h")  # Ensure it's a string
-# fmt: on
 
 
 class TestingConfig(ServerConfig):

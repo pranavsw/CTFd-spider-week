@@ -1,4 +1,9 @@
 import requests
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
+
 from flask import Blueprint, abort
 from flask import current_app as app
 from flask import redirect, render_template, request, session, url_for
@@ -37,23 +42,22 @@ from CTFd.utils import get_config
 
 def get_auth_client():
     """Get a configured AuthenticationClient instance"""
-    host = get_config('GRPC_HOST', '10.0.0.137')
-    port = int(get_config('GRPC_PORT', 10000))
-    
-    # Ensure client ID and secret are strings
-    client_id = str(get_config('GRPC_CLIENT_ID', '156984'))
-    client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h'))
+    # Use environment variables
+    host = os.getenv('GRPC_HOST', 'grpc.lcas.spider-nitt.org')
+    port = int(os.getenv('GRPC_PORT', '443'))
     
     # Debug logging
     print(f"gRPC Configuration:")
     print(f"Host: {host}")
     print(f"Port: {port}")
-    print(f"Client ID (type): {type(client_id)}")
-    print(f"Client Secret (type): {type(client_secret)}")
+    
+    # Use secure channel for port 443
+    use_ssl = port == 443
     
     return AuthenticationClient(
         host=host,
-        port=port
+        port=port,
+        use_ssl=use_ssl
     )
 
 # Initialize the client
@@ -229,15 +233,39 @@ def register():
         from CTFd.forms.auth import RegistrationForm as RegistrationFormClass
         form = RegistrationFormClass(request.form)
         name = request.form.get("name", "").strip()
-        # print (name)
-        # email_address = request.form.get("email", "").strip().lower()
-        # password = request.form.get("password", "").strip()
-
-        # Check which action was requested
-        action = request.form.get("action")
         
-        # print(f"Form data: generate_otp={form.generate_otp.data}, submit={form.submit.data}")
-
+        # Add roll number validation
+        # Skip validation for admin users
+        if current_user.authed():
+            is_admin = current_user.type == "admin"
+        else:
+            is_admin = False
+            
+        if not is_admin and name:
+            # Get validation settings from environment variables
+            min_roll_length = int(os.getenv("MIN_ROLL_LENGTH", "6"))
+            allowed_batch_code = os.getenv("ALLOWED_BATCH_CODE")  # No default value
+            error_message = os.getenv("REGISTRATION_ERROR_MESSAGE", 
+                                     "Only First year students are allowed to participate in this CTF")
+            
+            # Only validate if the name is not empty and user is not an admin
+            if len(name) < min_roll_length:
+                errors.append(error_message)
+                return render_template(
+                    "register.html",
+                    errors=errors,
+                    name=name,
+                )
+            # Only validate batch code if an allowed batch code is specified
+            elif allowed_batch_code and name[3:6] != allowed_batch_code:
+                errors.append(error_message)
+                return render_template(
+                    "register.html",
+                    errors=errors,
+                    name=name,
+                )
+        
+        # Rest of the function continues as before
         if form.generate_otp.data:
             if not name:
                 errors.append("Please enter your Roll No.")
@@ -259,8 +287,8 @@ def register():
             print (name + "Bye")
             try:
                 # Ensure credentials are properly formatted
-                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
-                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                client_id = os.getenv('GRPC_CLIENT_ID')
+                client_secret = os.getenv('GRPC_CLIENT_SECRET')
                 
                 # Generate OTP for registration
                 success, message = auth_client.generate_otp(
@@ -409,8 +437,8 @@ def register():
             
             # Verify OTP
             try:
-                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
-                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                client_id = os.getenv('GRPC_CLIENT_ID')
+                client_secret = os.getenv('GRPC_CLIENT_SECRET')
                 
                 success, message, details = auth_client.verify_otp(  # Now properly unpacking 3 values
                     client_id=client_id,
@@ -543,8 +571,8 @@ def login():
 
             try:
                 # Ensure credentials are properly formatted
-                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
-                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                client_id = os.getenv('GRPC_CLIENT_ID')
+                client_secret = os.getenv('GRPC_CLIENT_SECRET')
                 
                 # Generate OTP for login
                 success, message = auth_client.generate_otp(
@@ -609,8 +637,8 @@ def login():
                 )
 
             try:
-                client_id = str(get_config('GRPC_CLIENT_ID', '156984')).strip()
-                client_secret = str(get_config('GRPC_CLIENT_SECRET', '$05A#cRyd08h')).strip()
+                client_id = os.getenv('GRPC_CLIENT_ID')
+                client_secret = os.getenv('GRPC_CLIENT_SECRET')
                 
                 success, message, details = auth_client.verify_otp(
                     client_id=client_id,

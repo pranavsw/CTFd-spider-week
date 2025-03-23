@@ -4,9 +4,10 @@ from . import authentication_pb2_grpc
 import logging
 
 class AuthenticationClient:
-    def __init__(self, host='localhost', port=50051):
+    def __init__(self, host='localhost', port=50051, use_ssl=False):
         self.host = host
         self.port = port
+        self.use_ssl = use_ssl
         self.channel = None
         self.stub = None
         self._connect()
@@ -14,7 +15,17 @@ class AuthenticationClient:
     def _connect(self):
         """Establish connection to gRPC server"""
         try:
-            self.channel = grpc.insecure_channel(f'{self.host}:{self.port}')
+            if self.use_ssl:
+                # For secure connection (HTTPS)
+                credentials = grpc.ssl_channel_credentials()
+                self.channel = grpc.secure_channel(
+                    f'{self.host}:{self.port}', 
+                    credentials
+                )
+            else:
+                # For non-secure connection (HTTP)
+                self.channel = grpc.insecure_channel(f'{self.host}:{self.port}')
+            
             self.stub = authentication_pb2_grpc.AuthenticationStub(self.channel)
             # Test connection
             grpc.channel_ready_future(self.channel).result(timeout=5)
