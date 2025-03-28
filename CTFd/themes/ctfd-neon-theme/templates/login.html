@@ -1,0 +1,66 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+
+<div class="container">
+  
+  <h1 class="text-center text-light"
+    style="font-weight: 600; letter-spacing: 1px; text-shadow: 0 0 10px rgba(0, 0, 0, 0.5);">
+    Before we start HACKING
+  </h1><br><br><br>
+  <div class="row">
+    <div class="col-md-8 col offset-md-2 col-lg-6 offset-lg-3">
+      {% include "components/errors.html" %}
+
+      {% if integrations.mlc() %}
+      <a class="btn btn-secondary btn-lg btn-block w-100" href="{{ url_for('auth.oauth_login') }}">
+        Login with Major League Cyber
+      </a>
+
+      <hr>
+      {% endif %}
+
+      {% with form = Forms.auth.LoginForm() %}
+      <form method="post" accept-charset="utf-8" role="form">
+        <input type="hidden" name="action" id="form-action" value=""> {# This is used to determine if the form is being
+        submitted or if the user is requesting an OTP #}
+
+        <div class="mb-3">
+          <b>{{ form.name.label(class="form-label") }}</b>
+          {{ form.name(class="form-control", value=name, autocomplete="username" ,placeholder="Who are you?") }}
+          <small class="form-text text-muted">
+            {% trans %}Enter your Roll No.{% endtrans %}
+          </small>
+        </div>
+
+        <div class="row pt-3">
+          <div class="col-6 col-md-4 offset-6 offset-md-8">
+            {{ form.generate_otp(class="btn btn-block btn-primary w-100",
+            onclick="document.getElementById('form-action').value='generate_otp'", formnovalidate="true") }}
+          </div>
+        </div>
+
+        {% if otp_requested %} {# OTP is requested #}
+        <div class="mb-3 mt-3">
+          <b>{{ form.otp.label(class="form-label") }}</b>
+          {{ form.otp(class="form-control", value="", placeholder="Make sure nobody's behind you;)") }}
+          <small class="form-text text-muted">
+            {% trans %}Enter the OTP sent to Lynx App or Website{% endtrans %}
+          </small>
+        </div>
+
+        <div class="row pt-3">
+          <div class="col-6 col-md-4 offset-6 offset-md-8">
+            {{ form.submit(class="btn btn-block btn-primary w-100") }}
+          </div>
+        </div>
+        {% endif %}
+
+        {{ form.nonce() }}
+      </form>
+      {% endwith %}
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -21,14 +21,14 @@
           'urlRoot': "{{ request.script_root }}",
           'csrfNonce': "{{ Session.nonce }}",
           'userMode': "{{ Configs.user_mode }}",
-          'userId': {{ Session.id }},
-          'userName': {{ User.name | tojson }},
-          'userEmail': {{ User.email | tojson }},
-          'teamId': {{ Team.id | tojson }},
-          'teamName': {{ Team.name | tojson }},
-          'start': {{ Configs.start | tojson }},
-          'end': {{ Configs.end | tojson }},
-          'themeSettings': {{ Configs.theme_settings | tojson }},
+          'userId': "{{ Session.id }}",
+          'userName': "{{ User.name | tojson }}",
+          'userEmail': "{{ User.email | tojson }}",
+          'teamId': "{{ Team.id | tojson }}",
+          'teamName': "{{ Team.name | tojson }}",
+          'start': "{{ Configs.start | tojson }}",
+          'end': "{{ Configs.end | tojson }}",
+          'themeSettings': "{{ Configs.theme_settings | tojson }}",
           'eventSounds': [
             "/themes/core/static/sounds/notification.webm",
             "/themes/core/static/sounds/notification.mp3",
@@ -48,9 +48,9 @@
 
 <footer class="footer">
   <div class="container text-center">
-    <a href="https://ctfd.io" class="text-secondary">
+    <a href="https://spider.nitt.edu" class="text-secondary">
       <small class="text-muted">
-        {% trans %}Powered by CTFd{% endtrans %}
+        {% trans %}© 2025 Spider CTF Weaved with 🕸 by Spider{% endtrans %}
       </small>
     </a>
   </div>

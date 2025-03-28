@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <title>{{ Configs.ctf_name }}</title>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="shortcut icon" href="{{ Configs.ctf_small_icon }}" type="image/x-icon">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
+    <link rel="stylesheet" href="{{ url_for('views.themes', theme='core', path='css/fonts.css') }}">
+    <link rel="stylesheet" href="{{ url_for('views.themes', theme='core', path='css/core.min.css') }}">
+    <link rel="stylesheet" href="{{ url_for('views.themes', path='css/style.dev.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/HackerThemes/theme-machine@latest/dist/neon-glow/css/bootstrap4-neon-glow.min.css">
+
+    <link rel='stylesheet' href='https://cdn.jsdelivr.net/font-hack/2.020/css/hack.min.css'>
+    {% block stylesheets %}{% endblock %}
+
+    {{ Plugins.styles }}
+    <script type="text/javascript">
+      var init = {
+        'urlRoot': "{{ request.script_root }}",
+        'csrfNonce': "{{ Session.nonce }}",
+        'userMode': "{{ Configs.user_mode }}",
+        'userId': {{ Session.id }},
+        'start': {{ Configs.start | tojson }},
+        'end': {{ Configs.end | tojson }},
+        'theme_settings': {{ Configs.theme_settings | tojson }}
+      }
+    </script>
+    {{ Configs.theme_header }}
+  </head>
+
+  <body>
+    {% include "components/navbar.html" %}
+
+    <main role="main">
+      {% block content %}{% endblock %}
+    </main>
+
+    <footer class="footer py-1"
+      style="background: linear-gradient(to bottom, #16213e, #1a1a2e); border-top: 2px solid #4ade80;">
+      <div class="container">
+        <div class="row align-items-center">
+          <div class="col-md-4 d-none d-md-block">
+            <!-- Empty column for spacing -->
+          </div>
+          <div class="col-md-4 text-center" >
+            <p class="mb-0 text-light">
+              Weaved with <span class="spider-icon">🕸</span> by
+              <a href="https://spider.nitt.edu" target="_blank" rel="noopener noreferrer"class="fw-bold"
+                style="color: #4ade80; text-decoration: none; transition: all 0.3s ease;">
+                Spider
+              </a>
+            </p>
+          </div>
+          <div class="col-md-4 d-flex justify-content-md-end justify-content-center mt-2 mt-md-0">
+            <div class="social-links">
+              <a href="https://github.com/spidernitt" class="text-light mx-2" title="GitHub" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-github" ></i>
+              </a>
+              <a href="https://www.instagram.com/spider_nitt/" class="text-light mx-2" title="Instragram" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-instagram" ></i>
+              </a>
+                
+              <a href="https://in.linkedin.com/company/spider-r-d" class="text-light mx-2" title="linkedin" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-linkedin" ></i>
+
+              </a>
+              <a href="https://www.facebook.com/spidernitt" class="text-light mx-2" title="Facebook" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-facebook" ></i>
+              </a>
+              <a href="https://medium.com/spidernitt" class="text-light mx-2" title="Medium" target="_blank" rel="noopener noreferrer">
+                <i class="bi bi-medium" ></i>
+            </div>
+          </div>
+        </div>
+      </div>
+    </footer>
+
+
+    <script defer="defer" src="{{ url_for('views.themes', theme='core', path='js/vendor.bundle.js') }}"></script>
+    <script defer="defer" src="{{ url_for('views.themes', theme='core', path='js/core.js') }}"></script>
+    <script defer="defer" src="{{ url_for('views.themes', theme='core', path='js/helpers.js') }}"></script>
+
+    {% block entrypoint %}
+      <script defer="defer" src="{{ url_for('views.themes', theme='core', path='js/pages/main.js') }}"></script>
+    {% endblock %}
+
+    {% block scripts %}{% endblock %}
+
+    {{ Plugins.scripts }}
+
+    {{ Configs.theme_footer }}
+  </body>
+
+</html>
