@@ -2,15 +2,38 @@ import grpc
 from . import authentication_pb2
 from . import authentication_pb2_grpc
 import logging
+import os
+import time
 
 class AuthenticationClient:
-    def __init__(self, host='localhost', port=50051, use_ssl=False):
+    def __init__(self, 
+                 host=os.getenv('GRPC_AUTH_HOST', 'localhost'), 
+                 port=int(os.getenv('GRPC_AUTH_PORT', '50051')), 
+                 use_ssl=False,
+                 max_retries=3):
         self.host = host
         self.port = port
         self.use_ssl = use_ssl
         self.channel = None
         self.stub = None
-        self._connect()
+        self.max_retries = max_retries
+        self._connect_with_retry()
+
+    def _connect_with_retry(self):
+        """Try to connect with retries"""
+        retries = 0
+        while retries < self.max_retries:
+            try:
+                self._connect()
+                return  # Connection successful
+            except Exception as e:
+                retries += 1
+                logging.warning(f"Connection attempt {retries}/{self.max_retries} failed: {e}")
+                if retries >= self.max_retries:
+                    logging.error(f"Failed to connect after {self.max_retries} attempts")
+                    # Don't raise, allow lazy connection in methods
+                    return
+                time.sleep(2)  # Wait before retrying
 
     def _connect(self):
         """Establish connection to gRPC server"""
@@ -27,14 +50,13 @@ class AuthenticationClient:
                 self.channel = grpc.insecure_channel(f'{self.host}:{self.port}')
             
             self.stub = authentication_pb2_grpc.AuthenticationStub(self.channel)
-            # Test connection
-            grpc.channel_ready_future(self.channel).result(timeout=5)
+            # Test connection with shorter timeout
+            grpc.channel_ready_future(self.channel).result(timeout=3)
             logging.info(f"Successfully connected to gRPC server at {self.host}:{self.port}")
-        except grpc.FutureTimeoutError as e:
-            logging.error(f"Timeout connecting to gRPC server at {self.host}:{self.port}: {e}")
-            raise
         except Exception as e:
             logging.error(f"Failed to connect to gRPC server at {self.host}:{self.port}: {e}")
+            self.channel = None
+            self.stub = None
             raise
 
     def generate_otp(self, client_id: str, client_secret: str, roll_no: int):
