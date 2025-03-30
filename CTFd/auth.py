@@ -257,7 +257,7 @@ def register():
                     name=name,
                 )
             # Only validate batch code if an allowed batch code is specified
-            elif allowed_batch_code and name[3:6] != allowed_batch_code:
+            elif allowed_batch_code and name[4:6] != allowed_batch_code:
                 errors.append(error_message)
                 return render_template(
                     "register.html",
