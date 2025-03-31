@@ -60,8 +60,24 @@ def get_auth_client():
         use_ssl=use_ssl
     )
 
-# Initialize the client
-auth_client = get_auth_client()
+# Replace this:
+# auth_client = get_auth_client()
+
+# With a function that returns the client when needed:
+def get_active_auth_client():
+    """Get an instance of the AuthenticationClient only when needed"""
+    # from CTFd.utils.grpc import AuthenticationClient
+    import os
+    
+    host = os.getenv('GRPC_HOST', 'grpc.lcas.spider-nitt.org')
+    port = int(os.getenv('GRPC_PORT', '443'))
+    use_ssl = port == 443
+    
+    return AuthenticationClient(
+        host=host,
+        port=port,
+        use_ssl=use_ssl
+    )
 
 @auth.route("/confirm", methods=["POST", "GET"])
 @auth.route("/confirm/<data>", methods=["POST", "GET"])
@@ -291,6 +307,7 @@ def register():
                 client_secret = os.getenv('GRPC_CLIENT_SECRET')
                 
                 # Generate OTP for registration
+                auth_client = get_active_auth_client()
                 success, message = auth_client.generate_otp(
                     client_id=client_id,
                     client_secret=client_secret,
@@ -575,6 +592,7 @@ def login():
                 client_secret = os.getenv('GRPC_CLIENT_SECRET')
                 
                 # Generate OTP for login
+                auth_client = get_active_auth_client()
                 success, message = auth_client.generate_otp(
                     client_id=client_id,
                     client_secret=client_secret,
@@ -639,7 +657,7 @@ def login():
             try:
                 client_id = os.getenv('GRPC_CLIENT_ID')
                 client_secret = os.getenv('GRPC_CLIENT_SECRET')
-                
+                auth_client = get_active_auth_client()
                 success, message, details = auth_client.verify_otp(
                     client_id=client_id,
                     client_secret=client_secret,
