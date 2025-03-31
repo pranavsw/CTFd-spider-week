@@ -42,7 +42,16 @@ from CTFd.utils import get_config
 
 def get_auth_client():
     """Get a configured AuthenticationClient instance"""
-    # Use environment variables
+    # import os
+    
+    # Skip gRPC initialization during migrations
+    if os.getenv('CTF_SKIP_GRPC', 'False').lower() == 'true':
+        from unittest.mock import MagicMock
+        return MagicMock()  # Return a mock that won't attempt to connect
+    
+    # Original code for getting the client
+    # from CTFd.utils.grpc import AuthenticationClient
+    
     host = os.getenv('GRPC_HOST', 'grpc.lcas.spider-nitt.org')
     port = int(os.getenv('GRPC_PORT', '443'))
     
