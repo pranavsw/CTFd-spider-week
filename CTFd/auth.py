@@ -465,8 +465,8 @@ def register():
             try:
                 client_id = os.getenv('GRPC_CLIENT_ID')
                 client_secret = os.getenv('GRPC_CLIENT_SECRET')
-                
-                success, message, details = auth_client.verify_otp(  # Now properly unpacking 3 values
+                auth_client = get_active_auth_client()
+                success, message, student_name = auth_client.verify_otp(
                     client_id=client_id,
                     client_secret=client_secret,
                     roll_no=int(name),
@@ -491,8 +491,9 @@ def register():
                 # OTP verified successfully, create the user
                 user = Users(
                     name=name,
-                    email=name+"@nitt.edu",
-                    password=name+"@123",
+                    email=name + "@nitt.edu",
+                    password=name + "@123",
+                    fullname=student_name,  # Assign the student_name to the fullname field
                     bracket_id=bracket_id,
                 )
                 if website:

@@ -93,6 +93,9 @@ class AuthenticationClient:
 
     def verify_otp(self, client_id: str, client_secret: str, roll_no: int, otp: int):
         try:
+            if not self.stub:
+                self._connect()
+
             request = authentication_pb2.VerifyOTPRequest(
                 clientID=client_id,
                 clientSecret=client_secret,
@@ -100,9 +103,17 @@ class AuthenticationClient:
                 otp=otp
             )
             response = self.stub.VerifyOTP(request)
-            return True, response.message, response.Details
+
+            # Extract studentName from the response
+            student_name = response.Details.fields["studentName"].string_value
+
+            return True, response.message, student_name
         except grpc.RpcError as e:
+            logging.error(f"gRPC error in verify_otp: {e}")
             return False, f"gRPC error: {str(e)}", None
+        except Exception as e:
+            logging.error(f"Unexpected error in verify_otp: {e}")
+            return False, f"Unexpected error: {str(e)}", None
 
     def close(self):
         self.channel.close()

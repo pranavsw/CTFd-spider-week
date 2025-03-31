@@ -354,6 +354,7 @@ class Users(db.Model):
     oauth_id = db.Column(db.Integer, unique=True)
     # User names are not constrained to be unique to allow for official/unofficial teams.
     name = db.Column(db.String(128))
+    fullname = db.Column(db.String(128), nullable=True)  # Add this line for using full name
     password = db.Column(db.String(128))
     email = db.Column(db.String(128), unique=True)
     type = db.Column(db.String(80))
