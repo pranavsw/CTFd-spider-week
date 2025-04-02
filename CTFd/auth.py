@@ -488,7 +488,7 @@ def register():
                     name=name,
                     email=name + "@nitt.edu",
                     password=name + "@123",
-                    fullname=student_name,  # Assign the student_name to the fullname field
+                    # fullname=student_name,  # Assign the student_name to the fullname field
                     bracket_id=bracket_id,
                 )
                 if website:
