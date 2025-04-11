@@ -180,6 +180,7 @@ class ContainerManager:
                 command=command,
                 detach=True,
                 auto_remove=True,
+                privileged=True,
                 **kwargs
             )
         except docker.errors.ImageNotFound:
