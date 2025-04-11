@@ -4,7 +4,7 @@ services:
     user: root
     restart: always
     ports:
-      - "8000:8000"
+      - "8010:8000"
     environment:
       - UPLOAD_FOLDER=/var/uploads
       - DATABASE_URL=mysql+pymysql://ctfd:ctfd@db/ctfd
@@ -15,7 +15,7 @@ services:
       - ACCESS_LOG=-
       - ERROR_LOG=-
       - REVERSE_PROXY=true
-      - SECRET_KEY=987654321
+      - SECRET_KEY="987654321"
     volumes:
       - .data/CTFd/logs:/var/log/CTFd
       - .data/CTFd/uploads:/var/uploads
