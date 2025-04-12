@@ -16,10 +16,12 @@ services:
       - ERROR_LOG=-
       - REVERSE_PROXY=true
       - SECRET_KEY="987654321"
+      - DOCKER_HOST=unix:///var/run/docker.sock
     volumes:
       - .data/CTFd/logs:/var/log/CTFd
       - .data/CTFd/uploads:/var/uploads
       - .:/opt/CTFd:ro
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - db
     networks:
